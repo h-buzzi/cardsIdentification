@@ -33,7 +33,7 @@ def f_template_cartas(cartas, inf_lim, sup_lim, percentage):
             cartas[i][j] = roi_center
     return cartas
 
-def f_ident_cards(carta_analisa, template, inf_lim, sup_lim, percentage):
+def f_ident_cards(carta_analisa, template, inf_lim, sup_lim, border_percentage, filter_percentage):
     def f_template_matching(template, roi, method):
         '''Algoritmo de template_matching implementado com 6 métodos diferentes
         
@@ -102,7 +102,7 @@ def f_ident_cards(carta_analisa, template, inf_lim, sup_lim, percentage):
     card_contours, _ = cv2.findContours(bin_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     for c_c in card_contours:
         x,y,w,h = cv2.boundingRect(c_c)
-        ajust_x, ajust_y = round((x+w)*percentage),round((y+h)*percentage)
+        ajust_x, ajust_y = round((x+w)*border_percentage),round((y+h)*border_percentage)
         roi_image = bin_image[y+ajust_y:y+h-ajust_y,x+ajust_x:x+w-ajust_x]
         cv2.imshow('b',roi_image)
         cv2.waitKey(0)
@@ -118,13 +118,24 @@ def f_ident_cards(carta_analisa, template, inf_lim, sup_lim, percentage):
         x1,y1,w1,h1 = cv2.boundingRect(dilated_contours[-1])
         roi_image[y1:y1+h1,x1:x1+w1] = 0
         symbol_contours, _ = cv2.findContours(roi_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        xs,ys,ws,hs = cv2.boundingRect(symbol_contours[-1])
+        big_area = 0
+        area_list = []
+        for sc in symbol_contours:
+            area = cv2.contourArea(sc)
+            area_list.append(area)
+            if area>big_area:
+                big_area = area
+                big_sc = sc
+        xs,ys,ws,hs = cv2.boundingRect(big_sc)
         roi_symbol = roi_image[ys:ys+hs,xs:xs+ws]
         cv2.imshow('a',roi_symbol)
         cv2.waitKey(0)
         ident = f_template_matching(template, roi_symbol, 'zncc')
         ident = ident.split()
         n = len(symbol_contours)
+        for value in area_list:
+            if value < big_area*filter_percentage:
+                n -= 1
         if n > 1:
             ident[0] = str(n)
         cards.update({str(x) + ' ' + str(y + h//2):ident})
@@ -159,10 +170,10 @@ cartas = {'A':{'Copas':cv2.imread('Cartas/Nivel_1/A_copas.png'),
 
 cartas_template = f_template_cartas(cartas, 250, 255, 0.02)
 
-carta_analisa = cv2.imread('Cartas/Nivel_2/fig1_n2.png')
+carta_analisa = cv2.imread('Cartas/Nivel_2/fig2_n2.png')
 # carta_analisa = cv2.imread('Cartas/Nivel_1/Nove_paus.png')
 
-cards = f_ident_cards(carta_analisa, cartas_template, 250, 255, 0.02)
+cards = f_ident_cards(carta_analisa, cartas_template, 250, 255, 0.02, 0.8)
 
 f_plot_ident(carta_analisa,cards)
 
